@@ -1,36 +1,46 @@
 # mcp-audit
 
-> Security scanner for Model Context Protocol (MCP) configurations.
+> Local, zero-setup security linter for your MCP client configs.
 
 [![npm version](https://img.shields.io/npm/v/@cruxet/mcp-audit.svg)](https://www.npmjs.com/package/@cruxet/mcp-audit)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/cruxet/mcp-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/cruxet/mcp-audit/actions/workflows/ci.yml)
 
-`mcp-audit` scans your MCP configuration files for security vulnerabilities,
-including the systemic issues disclosed by OX Security in April 2026
-affecting 14+ CVEs across the AI ecosystem.
-
-## Why
-
-In April 2026, [OX Security disclosed a systemic command-injection
-vulnerability](https://www.ox.security/blog/the-mother-of-all-ai-supply-chains-critical-systemic-vulnerability-at-the-core-of-the-mcp/)
-in Anthropic's official MCP SDKs. Anthropic declined to patch at the
-protocol level — downstream developers inherited the risk.
-
-If you use Cursor, Claude Code, Claude Desktop, Windsurf, VSCode, or any
-other MCP-enabled tool, your configuration may be vulnerable. `mcp-audit`
-finds these issues before an attacker does.
-
-## Quick Start
+`mcp-audit` is a static analyzer for Model Context Protocol (MCP) configuration
+files. It catches command injection, hardcoded secrets, insecure transports,
+dangerous environment variables, and known vulnerable package references across
+every major MCP client — **without an account, without a network call, and
+without sending anything to a third party.**
 
 ```bash
 npx @cruxet/mcp-audit
 ```
 
-That's it. No install required. Auto-discovers MCP configs across every
-supported client and reports issues with CVE references and suggested fixes.
+That's the whole setup. It finds your configs, scans them with a deterministic
+rules engine, and prints actionable fixes. Works on Cursor, Claude Desktop,
+Claude Code, Windsurf, VSCode, Continue.dev, Codex, and Zed — on macOS, Linux,
+and Windows.
 
-## What It Checks
+## What this is — and what it isn't
+
+**This is:** a fast, offline linter for MCP *client* configuration files. Think
+of it as ESLint for your `~/.cursor/mcp.json` and friends. It looks at the
+config you've written and flags operational misconfigurations an attacker
+could weaponize — wrong launcher, shell metacharacters in `args`, API keys
+committed to disk, `http://` where `https://` belongs, environment variables
+that hijack dynamic linking, and packages with known CVEs.
+
+**This is not:** a runtime scanner. `mcp-audit` never starts your MCP servers,
+never calls their `tools/list` endpoints, never sends tool descriptions to an
+LLM for analysis. If you want to audit what a third-party server *does* at
+runtime — prompt injection, tool poisoning, toxic flows — pair `mcp-audit`
+with a runtime scanner like
+[Snyk Agent Scan](https://github.com/snyk/agent-scan) or
+[`@dj_abstract/mcp-audit`](https://www.npmjs.com/package/@dj_abstract/mcp-audit).
+They answer "is this server malicious?"; this tool answers "did I configure
+it safely?"
+
+## What it checks
 
 | Rule | Checks for | Severity |
 | --- | --- | --- |
@@ -48,7 +58,7 @@ CVEs mapped include `CVE-2026-30623` (LiteLLM), `CVE-2026-30615`
 `CVE-2026-33224` (Bisheng), `CVE-2025-54994`
 (`@akoskm/create-mcp-server-stdio`), and others.
 
-## Supported Clients
+## Supported clients
 
 | Client | Path |
 | --- | --- |
@@ -104,7 +114,31 @@ npx @cruxet/mcp-audit --verbose
 npx @cruxet/mcp-audit --no-color
 ```
 
-### Exit Codes
+### Inventory
+
+Sometimes you don't want a scan — you just want to know *what MCP servers you
+have configured*. `inventory` lists every server across every discovered
+config, grouped by client and scope, with transport and package information.
+No rules are evaluated, nothing is flagged.
+
+```bash
+# List every MCP server across all discovered configs
+npx @cruxet/mcp-audit inventory
+
+# Inspect a single file
+npx @cruxet/mcp-audit inventory --config ~/.cursor/mcp.json
+
+# Machine-readable output (for scripting / dashboards / baselines)
+npx @cruxet/mcp-audit inventory --format json > mcp-inventory.json
+```
+
+Useful for:
+
+- Quick "what's running on my machine?" review before connecting a new server.
+- Security reviews and team audits — a single source of truth for MCP surface.
+- Capturing a baseline you can diff against later to catch silent additions.
+
+### Exit codes
 
 | Code | Meaning |
 | --- | --- |
@@ -115,7 +149,9 @@ npx @cruxet/mcp-audit --no-color
 | 4 | Critical-severity findings present |
 | 10 | Scan error (invalid flag, unreadable file, …) |
 
-## CI/CD Integration
+`inventory` always exits `0` on success.
+
+## CI/CD integration
 
 GitHub Actions with Code Scanning:
 
@@ -161,8 +197,11 @@ npx @cruxet/mcp-audit --skip-global --fail-on high --quiet || {
 - No telemetry.
 - No file writes (unless you pass `--output`).
 - No LLM calls — this is a deterministic rules engine.
+- No account, no API token.
 
-Your MCP configs, secrets, and findings stay on your machine.
+Your MCP configs, secrets, and findings stay on your machine. This makes the
+tool safe to run in regulated environments, air-gapped networks, and any
+workflow where sending configuration data to a third party is off the table.
 
 ## Development
 
@@ -182,6 +221,7 @@ src/
   scanner/      # discovery + parser + orchestrator
   rules/        # rule implementations (one file per rule)
   reporters/    # pretty / json / sarif / markdown
+  inventory.ts  # inventory builder + pretty/json renderers
   utils/        # platform, json-locator, logger
 tests/
   fixtures/
