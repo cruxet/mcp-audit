@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "insecure": {
+      "url": "http://mcp.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer abcdefghijklmnopqrstuvwxyz1234567890"
+      }
+    }
+  }
+}

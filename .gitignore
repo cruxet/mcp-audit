@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+*.tsbuildinfo
+
+# Internal docs — contains launch strategy, company tie-in, etc.
+# Keep local, do not publish.
+docs/MCP_AUDIT_BRIEF.md

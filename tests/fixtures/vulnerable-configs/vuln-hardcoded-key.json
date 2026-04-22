@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "openai-tool": {
+      "command": "npx",
+      "args": ["-y", "@example/openai-mcp"],
+      "env": {
+        "OPENAI_API_KEY": "sk-proj-abc123def456ghi789jkl012mno345pqr678stu901vwx234"
+      }
+    }
+  }
+}

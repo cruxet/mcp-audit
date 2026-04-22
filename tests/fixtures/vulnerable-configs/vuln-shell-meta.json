@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "dangerous": {
+      "command": "npx",
+      "args": ["my-tool", "&&", "malicious-command"]
+    }
+  }
+}

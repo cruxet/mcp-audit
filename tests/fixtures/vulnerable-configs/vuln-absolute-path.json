@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "risky": {
+      "command": "/bin/sh",
+      "args": ["-c", "id"]
+    }
+  }
+}
