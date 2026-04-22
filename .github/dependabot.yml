@@ -2,7 +2,8 @@ version: 2
 updates:
   # NPM runtime + dev dependencies.
   # mcp-audit is a security tool — we want every upstream bump to get
-  # an immediate PR so transitive CVEs never linger.
+  # an immediate PR so transitive CVEs never linger, but we stay on
+  # the same major of each dep until we deliberately upgrade.
   - package-ecosystem: npm
     directory: "/"
     schedule:
@@ -16,23 +17,30 @@ updates:
     commit-message:
       prefix: "chore(deps)"
       prefix-development: "chore(deps-dev)"
-      include: scope
+    ignore:
+      # Skip major version bumps — Dependabot still surfaces them as
+      # security alerts via the separate "Dependabot alerts" feed; we
+      # upgrade majors deliberately, not on autopilot.
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
     groups:
-      # Group non-breaking dev updates into a single weekly PR to cut noise.
+      # Bundle noisy patch/minor dev updates into one weekly PR.
       dev-minor-and-patch:
         dependency-type: development
         update-types:
           - minor
           - patch
-      # Same for runtime patch-level — security fixes rarely land in
-      # minor/major without a note, so keep those one-per-PR.
+      # Runtime patch-level updates in one PR too (still one-per-PR
+      # for runtime minor bumps to keep blast radius small).
       runtime-patch:
         dependency-type: production
         update-types:
           - patch
 
-  # Pin GitHub Actions to keep supply-chain small surface and get alerts
-  # when actions/* or github/codeql-action/* have new tags.
+  # Pin GitHub Actions to keep supply-chain surface small. Allow minor
+  # and patch bumps — action majors tend to ship breaking Node/runner
+  # requirements and we gate those behind manual review.
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
@@ -44,3 +52,7 @@ updates:
       - ci
     commit-message:
       prefix: "chore(ci)"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major

@@ -1,6 +1,6 @@
-import path from 'node:path';
 import type { Rule } from './types.js';
 import { locateServer } from '../utils/json-locator.js';
+import { crossPlatformBasename } from '../utils/platform.js';
 
 const SAFE_COMMANDS = new Set([
   'npx',
@@ -50,7 +50,7 @@ export const commandAllowlistRule: Rule = {
     const command = server.command;
 
     if (ABSOLUTE_PATH_REGEX.test(command)) {
-      const baseName = path.basename(command).toLowerCase();
+      const baseName = crossPlatformBasename(command).toLowerCase();
       const isShell = DANGEROUS_COMMANDS.has(baseName);
       return [
         {
@@ -70,7 +70,7 @@ export const commandAllowlistRule: Rule = {
             before: `"command": "${command}"`,
             after: isShell
               ? '"command": "npx"  // or "uvx" for Python-based servers'
-              : `"command": "${path.basename(command)}"`,
+              : `"command": "${crossPlatformBasename(command)}"`,
           },
         },
       ];

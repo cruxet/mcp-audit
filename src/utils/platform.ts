@@ -23,3 +23,14 @@ export function isWindows(): boolean {
 export function isMac(): boolean {
   return process.platform === 'darwin';
 }
+
+/**
+ * path.basename is platform-aware: on POSIX it only splits on `/`, so a
+ * Windows-style path like `C:\\Windows\\cmd.exe` returns the whole
+ * string unchanged. We always want to resolve the last path component
+ * regardless of the host OS.
+ */
+export function crossPlatformBasename(p: string): string {
+  const lastSlash = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'));
+  return lastSlash >= 0 ? p.slice(lastSlash + 1) : p;
+}
