@@ -1,0 +1,46 @@
+version: 2
+updates:
+  # NPM runtime + dev dependencies.
+  # mcp-audit is a security tool — we want every upstream bump to get
+  # an immediate PR so transitive CVEs never linger.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: "Europe/Istanbul"
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+      include: scope
+    groups:
+      # Group non-breaking dev updates into a single weekly PR to cut noise.
+      dev-minor-and-patch:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+      # Same for runtime patch-level — security fixes rarely land in
+      # minor/major without a note, so keep those one-per-PR.
+      runtime-patch:
+        dependency-type: production
+        update-types:
+          - patch
+
+  # Pin GitHub Actions to keep supply-chain small surface and get alerts
+  # when actions/* or github/codeql-action/* have new tags.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - ci
+    commit-message:
+      prefix: "chore(ci)"
