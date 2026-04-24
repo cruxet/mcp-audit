@@ -19,7 +19,7 @@ export const markdownReporter: Reporter = {
     out.push('# MCP Audit Report');
     out.push('');
     out.push(`- **Generated:** ${new Date().toISOString()}`);
-    out.push(`- **Tool:** mcp-audit v${process.env.MCP_AUDIT_VERSION ?? '0.1.0'}`);
+    out.push(`- **Tool:** mcp-audit v${process.env.MCP_AUDIT_VERSION ?? '0.2.0'}`);
     out.push(`- **Configs scanned:** ${result.configs.length}`);
     out.push(`- **Findings:** ${result.findings.length}`);
     out.push('');

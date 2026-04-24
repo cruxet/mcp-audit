@@ -16,7 +16,7 @@ export const jsonReporter: Reporter = {
 
     const payload = {
       tool: 'mcp-audit',
-      version: process.env.MCP_AUDIT_VERSION ?? '0.1.0',
+      version: process.env.MCP_AUDIT_VERSION ?? '0.2.0',
       scannedAt: new Date().toISOString(),
       configs: result.configs.map((c) => ({
         path: c.path,

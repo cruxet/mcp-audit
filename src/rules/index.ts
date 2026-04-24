@@ -6,6 +6,7 @@ import { insecureTransportRule } from './insecure-transport.js';
 import { environmentInjectionRule } from './environment-injection.js';
 import { suspiciousPackageRule } from './suspicious-package.js';
 import { configurationErrorRule } from './configuration-error.js';
+import { unpinnedPackageRule } from './unpinned-package.js';
 
 export const allRules: Rule[] = [
   commandAllowlistRule,
@@ -15,6 +16,7 @@ export const allRules: Rule[] = [
   environmentInjectionRule,
   suspiciousPackageRule,
   configurationErrorRule,
+  unpinnedPackageRule,
 ];
 
 export {
@@ -25,4 +27,5 @@ export {
   environmentInjectionRule,
   suspiciousPackageRule,
   configurationErrorRule,
+  unpinnedPackageRule,
 };

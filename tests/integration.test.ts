@@ -90,6 +90,29 @@ describe('scan() integration', () => {
     expect(result.findings.some((f) => f.ruleId === 'MCP-AUDIT-003')).toBe(true);
   });
 
+  it('detects unpinned packages and @latest dist-tag', async () => {
+    const result = await scan({
+      explicitPaths: [path.join(VULN_DIR, 'vuln-unpinned-package.json')],
+      skipGlobal: true,
+      skipProject: true,
+    });
+    const r008 = result.findings.filter((f) => f.ruleId === 'MCP-AUDIT-008');
+    expect(r008.length).toBeGreaterThanOrEqual(2);
+    expect(r008.some((f) => f.severity === 'medium')).toBe(true);
+    expect(r008.some((f) => f.severity === 'high')).toBe(true);
+  });
+
+  it('detects github: shortcut installs as high', async () => {
+    const result = await scan({
+      explicitPaths: [path.join(VULN_DIR, 'vuln-github-install.json')],
+      skipGlobal: true,
+      skipProject: true,
+    });
+    expect(
+      result.findings.some((f) => f.ruleId === 'MCP-AUDIT-008' && f.severity === 'high')
+    ).toBe(true);
+  });
+
   it('records location for findings', async () => {
     const result = await scan({
       explicitPaths: [path.join(VULN_DIR, 'vuln-bash-c.json')],

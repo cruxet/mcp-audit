@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "experimental": {
+      "command": "npx",
+      "args": ["-y", "github:some-user/experimental-mcp"]
+    }
+  }
+}

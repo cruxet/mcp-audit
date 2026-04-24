@@ -105,10 +105,23 @@ function extractPackageRef(server: MCPServerConfig): string | undefined {
 
   for (const a of args) {
     if (a.startsWith('-')) continue;
-    if (a === 'run' || a === 'dlx' || a === 'exec') continue;
-    return a;
+    if (a === 'run' || a === 'dlx' || a === 'exec' || a === 'x') continue;
+    return stripVersionSpec(a);
   }
   return undefined;
+}
+
+const VERSIONED_PACKAGE_REGEX =
+  /^((?:@[A-Za-z0-9][A-Za-z0-9._-]*\/)?[A-Za-z0-9][A-Za-z0-9._-]{0,213})@[^@/]+$/;
+
+/**
+ * Strip a trailing version spec from `name@version` so that inventory can
+ * deduplicate by package name. Non-registry references (git/URL/file) are
+ * returned untouched so they remain visible in the listing.
+ */
+function stripVersionSpec(arg: string): string {
+  const m = arg.match(VERSIONED_PACKAGE_REGEX);
+  return m ? (m as unknown as [string, string])[1] : arg;
 }
 
 function isPackageRunner(cmd: string): boolean {
@@ -237,5 +250,5 @@ export function renderInventoryJson(inv: Inventory): string {
 }
 
 function getVersion(): string {
-  return process.env.MCP_AUDIT_VERSION ?? '0.1.0';
+  return process.env.MCP_AUDIT_VERSION ?? '0.2.0';
 }

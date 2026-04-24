@@ -6,8 +6,16 @@ import { getReporter, type ReporterFormat } from './reporters/index.js';
 import { logger } from './utils/logger.js';
 import { SEVERITY_ORDER, type Severity } from './rules/types.js';
 import { buildInventory, renderInventoryPretty, renderInventoryJson } from './inventory.js';
+import {
+  diffReports,
+  maxAddedSeverity,
+  renderDiffPretty,
+  renderDiffJson,
+  renderDiffMarkdown,
+  type ScanReportLike,
+} from './diff.js';
 
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 process.env.MCP_AUDIT_VERSION = VERSION;
 
 interface ScanCliOptions {
@@ -36,13 +44,22 @@ interface InventoryCliOptions {
   color: boolean;
 }
 
+interface DiffCliOptions {
+  format: 'pretty' | 'json' | 'markdown';
+  output?: string;
+  failOnNew?: Severity;
+  verbose: boolean;
+  quiet: boolean;
+  color: boolean;
+}
+
 const program = new Command()
   .name('mcp-audit')
   .description('Local, zero-setup security linter for MCP client configs.')
   .version(VERSION)
   .addHelpText(
     'after',
-    `\nExamples:\n  $ npx mcp-audit\n  $ npx mcp-audit --config ~/.cursor/mcp.json\n  $ npx mcp-audit --format json > report.json\n  $ npx mcp-audit --fail-on high\n  $ npx mcp-audit inventory\n\nExit codes:\n  0 — clean (or only findings below --fail-on)\n  1 — low-severity findings present\n  2 — medium-severity findings present\n  3 — high-severity findings present\n  4 — critical-severity findings present\n  10 — scan error\n`
+    `\nExamples:\n  $ npx mcp-audit\n  $ npx mcp-audit --config ~/.cursor/mcp.json\n  $ npx mcp-audit --format json > report.json\n  $ npx mcp-audit --fail-on high\n  $ npx mcp-audit inventory\n  $ npx mcp-audit diff baseline.json current.json --fail-on-new high\n\nExit codes:\n  0 — clean (or only findings below --fail-on)\n  1 — low-severity findings present\n  2 — medium-severity findings present\n  3 — high-severity findings present\n  4 — critical-severity findings present\n  10 — scan error\n`
   );
 
 program
@@ -139,6 +156,85 @@ program
     }
   });
 
+program
+  .command('diff')
+  .description('Compare two JSON scan reports and surface new / resolved / escalated findings')
+  .argument('<baseline>', 'Path to baseline JSON scan report (produced by `mcp-audit --format json`)')
+  .argument('<current>', 'Path to current JSON scan report')
+  .option('-f, --format <format>', 'Output format: pretty | json | markdown', 'pretty')
+  .option('-o, --output <file>', 'Write diff to file instead of stdout')
+  .option(
+    '--fail-on-new <severity>',
+    'Exit non-zero if a new or escalated finding at or above this severity appears'
+  )
+  .option('-v, --verbose', 'Verbose output', false)
+  .option('-q, --quiet', 'Suppress non-essential output', false)
+  .option('--no-color', 'Disable colored output')
+  .action(async (baselinePath: string, currentPath: string, rawOpts: DiffCliOptions) => {
+    const opts = normalizeDiffOpts(rawOpts);
+    configureLogger(opts);
+
+    try {
+      const [baseline, current] = await Promise.all([
+        loadScanReport(baselinePath, 'baseline'),
+        loadScanReport(currentPath, 'current'),
+      ]);
+
+      const diff = diffReports(baseline, current);
+
+      let rendered: string;
+      if (opts.format === 'json') rendered = renderDiffJson(diff);
+      else if (opts.format === 'markdown') rendered = renderDiffMarkdown(diff);
+      else rendered = renderDiffPretty(diff);
+
+      if (opts.output) {
+        await fs.writeFile(opts.output, rendered, 'utf8');
+        if (!opts.quiet) logger.info(`Diff written to ${opts.output}`);
+      } else {
+        process.stdout.write(rendered);
+      }
+
+      if (opts.failOnNew) {
+        const newMax = maxAddedSeverity(diff);
+        if (newMax && SEVERITY_ORDER[newMax] >= SEVERITY_ORDER[opts.failOnNew]) {
+          process.exit(severityToExit(newMax));
+        }
+      }
+      process.exit(0);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error(msg);
+      if (opts.verbose && err instanceof Error && err.stack) {
+        logger.error(err.stack);
+      }
+      process.exit(10);
+    }
+  });
+
+async function loadScanReport(filePath: string, label: string): Promise<ScanReportLike> {
+  let raw: string;
+  try {
+    raw = await fs.readFile(filePath, 'utf8');
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`Failed to read ${label} report "${filePath}": ${msg}`);
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`Failed to parse ${label} report "${filePath}" as JSON: ${msg}`);
+  }
+  if (typeof parsed !== 'object' || parsed === null || !Array.isArray((parsed as { findings?: unknown }).findings)) {
+    throw new Error(
+      `${label} report "${filePath}" is missing a "findings" array. ` +
+        `Generate it with: mcp-audit --format json --output ${label}.json`
+    );
+  }
+  return parsed as ScanReportLike;
+}
+
 function normalizeScanOpts(raw: ScanCliOptions): ScanCliOptions {
   const sevValues: Severity[] = ['info', 'low', 'medium', 'high', 'critical'];
   const minSeverity = raw.minSeverity as Severity;
@@ -165,6 +261,22 @@ function normalizeInventoryOpts(raw: InventoryCliOptions): InventoryCliOptions {
     process.exit(10);
   }
   return { ...raw, format: raw.format as 'pretty' | 'json' };
+}
+
+function normalizeDiffOpts(raw: DiffCliOptions): DiffCliOptions {
+  const fmtValues = ['pretty', 'json', 'markdown'] as const;
+  if (!fmtValues.includes(raw.format as (typeof fmtValues)[number])) {
+    logger.error(`Invalid --format value: ${raw.format}. Use one of: ${fmtValues.join(', ')}`);
+    process.exit(10);
+  }
+  if (raw.failOnNew) {
+    const sevValues: Severity[] = ['info', 'low', 'medium', 'high', 'critical'];
+    if (!sevValues.includes(raw.failOnNew as Severity)) {
+      logger.error(`Invalid --fail-on-new value: ${raw.failOnNew}. Use one of: ${sevValues.join(', ')}`);
+      process.exit(10);
+    }
+  }
+  return { ...raw, format: raw.format as 'pretty' | 'json' | 'markdown' };
 }
 
 function configureLogger(opts: { quiet: boolean; verbose: boolean; color: boolean }): void {

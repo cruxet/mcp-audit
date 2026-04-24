@@ -7,6 +7,7 @@ import {
   environmentInjectionRule,
   suspiciousPackageRule,
   configurationErrorRule,
+  unpinnedPackageRule,
 } from '../src/rules/index.js';
 import { runRule } from './helpers.js';
 
@@ -231,6 +232,138 @@ describe('suspiciousPackageRule', () => {
         args: ['-y', '@modelcontextprotocol/server-github'],
       })
     ).toHaveLength(0);
+  });
+});
+
+describe('unpinnedPackageRule', () => {
+  it('flags unpinned npx package as medium', () => {
+    const findings = runRule(unpinnedPackageRule, {
+      command: 'npx',
+      args: ['-y', '@modelcontextprotocol/server-github'],
+    });
+    expect(findings).toHaveLength(1);
+    expect(findings[0].severity).toBe('medium');
+    expect(findings[0].matched).toBe('@modelcontextprotocol/server-github');
+  });
+
+  it('flags @latest dist-tag as high', () => {
+    const findings = runRule(unpinnedPackageRule, {
+      command: 'npx',
+      args: ['-y', 'some-mcp@latest'],
+    });
+    expect(findings).toHaveLength(1);
+    expect(findings[0].severity).toBe('high');
+  });
+
+  it('flags @next / @beta / @canary dist-tags as high', () => {
+    for (const tag of ['next', 'beta', 'canary']) {
+      const findings = runRule(unpinnedPackageRule, {
+        command: 'npx',
+        args: ['-y', `some-mcp@${tag}`],
+      });
+      expect(findings).toHaveLength(1);
+      expect(findings[0].severity).toBe('high');
+    }
+  });
+
+  it('does not flag pinned semver', () => {
+    expect(
+      runRule(unpinnedPackageRule, {
+        command: 'npx',
+        args: ['-y', '@modelcontextprotocol/server-github@2024.12.5'],
+      })
+    ).toHaveLength(0);
+
+    expect(
+      runRule(unpinnedPackageRule, {
+        command: 'npx',
+        args: ['-y', 'some-mcp@^1.2.3'],
+      })
+    ).toHaveLength(0);
+  });
+
+  it('flags github: shortcut installs as high', () => {
+    const findings = runRule(unpinnedPackageRule, {
+      command: 'npx',
+      args: ['-y', 'github:evil/mcp'],
+    });
+    expect(findings).toHaveLength(1);
+    expect(findings[0].severity).toBe('high');
+  });
+
+  it('flags git+https URLs as high', () => {
+    const findings = runRule(unpinnedPackageRule, {
+      command: 'npx',
+      args: ['-y', 'git+https://example.com/repo.git'],
+    });
+    expect(findings).toHaveLength(1);
+    expect(findings[0].severity).toBe('high');
+  });
+
+  it('flags arbitrary https tarballs as high', () => {
+    const findings = runRule(unpinnedPackageRule, {
+      command: 'npx',
+      args: ['-y', 'https://example.com/some-mcp.tgz'],
+    });
+    expect(findings).toHaveLength(1);
+    expect(findings[0].severity).toBe('high');
+  });
+
+  it('flags file: references as high', () => {
+    const findings = runRule(unpinnedPackageRule, {
+      command: 'npx',
+      args: ['-y', 'file:../local-mcp'],
+    });
+    expect(findings).toHaveLength(1);
+    expect(findings[0].severity).toBe('high');
+  });
+
+  it('handles uvx, pipx, bunx, pnpx', () => {
+    for (const runner of ['uvx', 'pipx', 'bunx', 'pnpx']) {
+      const findings = runRule(unpinnedPackageRule, {
+        command: runner,
+        args: ['some-mcp'],
+      });
+      expect(findings, `runner=${runner}`).toHaveLength(1);
+    }
+  });
+
+  it('handles `pnpm dlx` and `yarn dlx` subcommand form', () => {
+    expect(
+      runRule(unpinnedPackageRule, { command: 'pnpm', args: ['dlx', 'some-mcp'] })
+    ).toHaveLength(1);
+    expect(
+      runRule(unpinnedPackageRule, { command: 'yarn', args: ['dlx', 'some-mcp'] })
+    ).toHaveLength(1);
+    expect(
+      runRule(unpinnedPackageRule, { command: 'bun', args: ['x', 'some-mcp'] })
+    ).toHaveLength(1);
+  });
+
+  it('does NOT flag `yarn <script>` without dlx (local script run)', () => {
+    expect(
+      runRule(unpinnedPackageRule, { command: 'yarn', args: ['start'] })
+    ).toHaveLength(0);
+  });
+
+  it('does not flag non-runner commands', () => {
+    expect(
+      runRule(unpinnedPackageRule, { command: 'node', args: ['server.js'] })
+    ).toHaveLength(0);
+    expect(runRule(unpinnedPackageRule, { command: 'python3', args: ['-m', 'foo'] })).toHaveLength(0);
+  });
+
+  it('does not flag http-only servers', () => {
+    expect(runRule(unpinnedPackageRule, { url: 'https://example.com' })).toHaveLength(0);
+  });
+
+  it('normalizes windows .cmd / .exe shims', () => {
+    const findings = runRule(unpinnedPackageRule, {
+      command: 'C:\\Program Files\\nodejs\\npx.cmd',
+      args: ['-y', 'some-mcp'],
+    });
+    expect(findings).toHaveLength(1);
+    expect(findings[0].severity).toBe('medium');
   });
 });
 

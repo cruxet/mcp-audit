@@ -51,6 +51,7 @@ it safely?"
 | `MCP-AUDIT-005` Environment Injection | `LD_PRELOAD`, `NODE_OPTIONS`, `DYLD_INSERT_LIBRARIES`, `PYTHONSTARTUP`, `BASH_ENV`, … | critical / high / medium |
 | `MCP-AUDIT-006` Suspicious Package | CVE-tagged packages, typosquats of well-known MCP servers | critical / high |
 | `MCP-AUDIT-007` Configuration Error | Missing `command`/`url`, conflicting transports, malformed blocks | medium |
+| `MCP-AUDIT-008` Unpinned Package Version | `npx foo` with no version, `@latest`/`@next`/`@beta` dist-tags, `github:` / URL / `file:` installs | high / medium |
 
 CVEs mapped include `CVE-2026-30623` (LiteLLM), `CVE-2026-30615`
 (Windsurf), `CVE-2026-34935` (PraisonAI), `CVE-2026-6130` (ChatboxAI),
@@ -138,6 +139,36 @@ Useful for:
 - Security reviews and team audits — a single source of truth for MCP surface.
 - Capturing a baseline you can diff against later to catch silent additions.
 
+### Drift detection
+
+Once you have a JSON scan report, you can diff it against a later run to
+catch new or escalated findings without re-announcing noise that was already
+known. Perfect for CI on pull requests.
+
+```bash
+# Capture a baseline today
+npx @cruxet/mcp-audit --format json --output baseline.json
+
+# Later — in CI, on each PR, etc.
+npx @cruxet/mcp-audit --format json --output current.json
+npx @cruxet/mcp-audit diff baseline.json current.json --fail-on-new high
+```
+
+`diff` correlates findings by a stable fingerprint (rule + server + matched
+value) so it's resilient to line-number drift and re-formatting. It reports:
+
+- **New** — findings that didn't exist in the baseline.
+- **Resolved** — findings from the baseline that are now gone.
+- **Changed severity** — same issue, but severity escalated (e.g. after a CVE
+  publication) or de-escalated.
+- **Unchanged** — still present, still the same severity.
+
+With `--fail-on-new <severity>`, the command exits non-zero only if a *new*
+or *escalated* finding meets or exceeds that severity — so an existing known
+issue won't keep tripping CI while you triage it.
+
+Supported output formats: `pretty` (default), `json`, `markdown`.
+
 ### Exit codes
 
 | Code | Meaning |
@@ -153,7 +184,36 @@ Useful for:
 
 ## CI/CD integration
 
-GitHub Actions with Code Scanning:
+### GitHub Action (recommended)
+
+The simplest way to wire this into CI is the official
+[`cruxet/mcp-audit-action`](https://github.com/cruxet/mcp-audit-action)
+composite action:
+
+```yaml
+name: MCP Audit
+on: [push, pull_request]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cruxet/mcp-audit-action@v0
+        with:
+          fail-on: high
+          upload-sarif: true
+```
+
+It handles Node setup, SARIF upload to GitHub Code Scanning, and artifact
+uploads for you.
+
+### Plain `npx` (any CI)
+
+If you'd rather invoke the CLI directly:
 
 ```yaml
 name: MCP Audit

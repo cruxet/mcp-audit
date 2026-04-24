@@ -1,6 +1,6 @@
 {
   "name": "@cruxet/mcp-audit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Local, zero-setup security linter for your MCP client configs. Catches command injection, hardcoded secrets, insecure transports, and known CVEs across Cursor, Claude, Windsurf, VSCode, Continue, Codex, and Zed. No account, no API calls, no data leaves your machine.",
   "homepage": "https://github.com/cruxet/mcp-audit",
   "bugs": {
