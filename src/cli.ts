@@ -15,7 +15,7 @@ import {
   type ScanReportLike,
 } from './diff.js';
 
-const VERSION = '0.2.0';
+const VERSION = '0.2.1';
 process.env.MCP_AUDIT_VERSION = VERSION;
 
 interface ScanCliOptions {
@@ -197,17 +197,21 @@ program
       if (opts.failOnNew) {
         const newMax = maxAddedSeverity(diff);
         if (newMax && SEVERITY_ORDER[newMax] >= SEVERITY_ORDER[opts.failOnNew]) {
-          process.exit(severityToExit(newMax));
+          // Use exitCode + return so stdout finishes flushing before process exits.
+          process.exitCode = severityToExit(newMax);
+          return;
         }
       }
-      process.exit(0);
+      process.exitCode = 0;
+      return;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.error(msg);
       if (opts.verbose && err instanceof Error && err.stack) {
         logger.error(err.stack);
       }
-      process.exit(10);
+      process.exitCode = 10;
+      return;
     }
   });
 

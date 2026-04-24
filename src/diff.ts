@@ -259,7 +259,7 @@ export function renderDiffJson(diff: DiffResult): string {
   const payload = {
     tool: 'mcp-audit',
     mode: 'diff',
-    version: process.env.MCP_AUDIT_VERSION ?? '0.2.0',
+    version: process.env.MCP_AUDIT_VERSION ?? '0.2.1',
     generatedAt: new Date().toISOString(),
     summary: {
       baselineTotal: diff.baselineTotal,

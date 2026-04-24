@@ -79,7 +79,7 @@ export const sarifReporter: Reporter = {
           tool: {
             driver: {
               name: 'mcp-audit',
-              version: process.env.MCP_AUDIT_VERSION ?? '0.2.0',
+              version: process.env.MCP_AUDIT_VERSION ?? '0.2.1',
               informationUri: 'https://github.com/cruxet/mcp-audit',
               rules,
             },

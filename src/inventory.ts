@@ -250,5 +250,5 @@ export function renderInventoryJson(inv: Inventory): string {
 }
 
 function getVersion(): string {
-  return process.env.MCP_AUDIT_VERSION ?? '0.2.0';
+  return process.env.MCP_AUDIT_VERSION ?? '0.2.1';
 }
